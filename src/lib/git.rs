@@ -11,15 +11,18 @@ struct GitRepo {
 
 impl GitRepo {
   pub fn upsert(cid_dir: impl AsRef<Path>, name: &str) -> io::Result<GitRepo> {
-    // Check if exists then return the wrapped GitRepo
-    //
-    // Else create & initialize the git repo.
     let repo_path = cid_dir.as_ref().join(name);
     let repo_path = repo_path
       .to_str()
       .expect(&format!("Fail to convert {:?} to &str", repo_path));
 
-    fs::create_dir_all(repo_path)?;
+    // This method will automatically:
+    // - Creates dir recursively
+    // - Creates git repo
+    // - Will not do anything if repo is already there (e.g. it'll stop if there's commit)
+    Repository::init(repo_path).map_err(|git_err| {
+      return io::Error::new(io::ErrorKind::Other, git_err.message());
+    })?;
 
     Ok(GitRepo {
       initiated: true,
@@ -57,13 +60,14 @@ mod GitRepoTests {
 
     #[test]
     fn when_foo() {
+      let repo_path = "/tmp/test-repo";
       let dir_cleaner = DirCleaner {
-        dir: String::from("/tmp/test-repo"),
+        dir: String::from(repo_path),
       };
 
       GitRepo::upsert("/tmp", "test-repo");
 
-      assert_eq!(Path::new(&dir_cleaner.dir).exists(), true);
+      assert_eq!(Path::new(repo_path).exists(), true);
     }
   }
 }
