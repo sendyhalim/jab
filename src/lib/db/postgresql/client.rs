@@ -28,7 +28,7 @@ pub struct RestoreInput<'a> {
   pub sql_str: &'a str,
 }
 
-pub fn restore(input: RestoreInput) {
-  // Drop db
-  // Restore from sql_str
-}
+// pub fn restore(input: RestoreInput) {
+// // Drop db
+// // Restore from sql_str
+// }

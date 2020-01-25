@@ -2,9 +2,14 @@ use clap::App as Cli;
 use clap::Arg;
 use clap::SubCommand;
 
+use env_logger;
+use lib::config;
 use lib::db::postgresql::client as pg;
+use lib::git::GitRepo;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+  env_logger::init();
+
   let commit = SubCommand::with_name("commit")
     .about("Commit current db state")
     .arg(
@@ -35,7 +40,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let dump_output = pg::dump(pg::DumpInput { db_uri })?;
 
-    println!("HEYY {}", dump_output);
+    println!("Creating project...");
+    let repo = GitRepo::upsert(config::get_project_dir(), "lol-meh")?;
+
+    println!("Reading db...");
+    repo.sync_dump(dump_output.clone())?;
+
+    println!("Writing state changes...");
+    repo.commit_dump("Update dump")?;
+
+    // println!("HEYY {}", dump_output);
   }
 
   Ok(())
