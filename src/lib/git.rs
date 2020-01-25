@@ -46,33 +46,6 @@ impl GitRepo {
   }
 
   pub fn commit_dump(&self, message: &str) -> Result<(), Box<dyn std::error::Error>> {
-    log::debug!("Finding repo head..");
-
-    let head = self.repo.head();
-
-    if let Err(err) = &head {
-      log::debug!("Error when accessing head {:?}", err.code());
-
-      if err.code() != git2::ErrorCode::UnbornBranch {
-        return Err(Box::from(std::io::Error::new(
-          std::io::ErrorKind::Other,
-          err.message(),
-        )));
-      }
-    }
-
-    let commit_result = head.as_ref().map(|valid_head| {
-      return valid_head.target().map(|head_id| {
-        return self.repo.find_commit(head_id);
-      });
-    });
-
-    log::debug!(
-      "Found repo head: {:?}, adding {:?} to index path",
-      commit_result,
-      self.sql_path
-    );
-
     let mut repo_index = self.repo.index()?;
 
     // Get the old tree first that we will use to simulate `git diff --cached`
@@ -92,7 +65,29 @@ impl GitRepo {
 
     let current_tree = self.repo.find_tree(current_oid)?;
 
-    if *&head.is_ok() {
+    if self.repo.is_empty()? {
+      log::debug!("Creating initial commit..");
+
+      self.repo.commit(
+        Some("HEAD"),
+        &self.repo.signature()?, // Author
+        &self.repo.signature()?, // Committer
+        &message,
+        &current_tree,
+        &vec![],
+      )?;
+    } else {
+      log::debug!("Finding repo head..");
+
+      let head = self.repo.head()?;
+      let head_commit = self.repo.find_commit(head.target().unwrap())?;
+
+      log::debug!(
+        "Found repo head: {:?}, adding {:?} to index path",
+        head_commit,
+        self.sql_path
+      );
+
       // Simulates `git diff --cached`
       let diff = self
         .repo
@@ -111,18 +106,7 @@ impl GitRepo {
         &self.repo.signature()?, // Committer
         &message,
         &current_tree,
-        &[&commit_result.unwrap().unwrap().unwrap()],
-      )?;
-    } else {
-      log::debug!("Creating initial commit..");
-
-      self.repo.commit(
-        Some("HEAD"),
-        &self.repo.signature()?, // Author
-        &self.repo.signature()?, // Committer
-        &message,
-        &current_tree,
-        &vec![],
+        &[&head_commit],
       )?;
     }
 
@@ -131,7 +115,10 @@ impl GitRepo {
 
   // pub fn checkout(&self, hash: String) {}
 
-  // pub fn log(&self) {}
+  // pub fn log(&self) {
+  // self.repo.
+
+  // }
 }
 
 #[cfg(test)]
