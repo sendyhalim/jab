@@ -1,6 +1,7 @@
 use git2;
 use git2::Repository;
 use log;
+use std::error::Error as StdError;
 use std::fs;
 use std::io;
 use std::path::Path;
@@ -11,6 +12,45 @@ pub struct GitRepo {
   pub repo_path: PathBuf,
   sql_path: PathBuf,
   repo: Repository,
+}
+
+pub struct Commit {
+  pub hash: String,
+  pub message: String,
+}
+
+pub struct CommitIterator<'repo> {
+  git_repo: &'repo GitRepo,
+  revision_walker: git2::Revwalk<'repo>,
+}
+
+impl<'a> Iterator for CommitIterator<'a> {
+  type Item = Result<Commit, Box<dyn StdError>>;
+
+  fn next(&mut self) -> Option<Result<Commit, Box<dyn StdError>>> {
+    let oid: Option<Result<git2::Oid, git2::Error>> = self.revision_walker.next();
+
+    log::debug!("Iterating {:?}", oid);
+
+    if oid.is_none() {
+      return None;
+    }
+
+    let oid: Result<git2::Oid, Box<dyn StdError>> = oid.unwrap().map_err(Box::from);
+    let oid = oid.map(|oid| {
+      return format!("{}", oid);
+    });
+
+    let commit = oid
+      .map(|oid| {
+        return format!("{}", oid);
+      })
+      .and_then(|oid| {
+        return self.git_repo.find_commit_by_id(oid);
+      });
+
+    return Some(commit);
+  }
 }
 
 impl GitRepo {
@@ -36,6 +76,15 @@ impl GitRepo {
 }
 
 impl GitRepo {
+  pub fn find_commit_by_id(&self, hash: String) -> Result<Commit, Box<dyn StdError>> {
+    let commit = self.repo.find_commit(git2::Oid::from_str(&hash)?)?;
+
+    return Ok(Commit {
+      hash,
+      message: String::from(commit.message().unwrap()),
+    });
+  }
+
   pub fn absolute_sql_path(&self) -> PathBuf {
     return self.repo_path.join(&self.sql_path);
   }
@@ -115,10 +164,19 @@ impl GitRepo {
 
   // pub fn checkout(&self, hash: String) {}
 
-  // pub fn log(&self) {
-  // self.repo.
+  pub fn commit_iterator(&self) -> Result<CommitIterator, Box<dyn StdError>> {
+    log::debug!("Getting revwalk...");
 
-  // }
+    let mut revision_walker = self.repo.revwalk()?;
+
+    // Start walking from HEAD
+    revision_walker.push_head()?;
+
+    return Ok(CommitIterator {
+      git_repo: self,
+      revision_walker: revision_walker,
+    });
+  }
 }
 
 #[cfg(test)]
@@ -139,7 +197,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn when_repo_does_not_existshould_create_repo() {
+    fn it_should_create_repo_when_repo_does_not_exist() {
       let repo_path = String::from("/tmp/test-repo");
       let _dir_cleaner = DirCleaner {
         dir: repo_path.clone(),
@@ -150,5 +208,12 @@ mod test {
       assert!(PathBuf::from(&repo_path).exists());
       assert!(PathBuf::from(&repo_path).join(".git").exists());
     }
+  }
+
+  mod commit {
+    use super::*;
+
+    #[test]
+    fn it_should_create_initial_commit_on_bare_repo() {}
   }
 }
