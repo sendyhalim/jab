@@ -1,6 +1,7 @@
 use clap::App as Cli;
 use clap::Arg;
 use clap::SubCommand;
+use log;
 
 use env_logger;
 use lib::config;
@@ -20,6 +21,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .help(r#"Database uri, for example: --database-uri="user:secret@localhost/mydb""#),
     );
 
+  let log = SubCommand::with_name("log").about("Show list of changes log");
+
   let cli = Cli::new("CID")
     .version("0.0.1")
     .author("Sendy Halim <sendyhalim93@gmail.com>")
@@ -31,6 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
        ",
     )
     .subcommand(commit)
+    .subcommand(log)
     .get_matches();
 
   if let Some(commit_cli) = cli.subcommand_matches("commit") {
@@ -40,16 +44,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let dump_output = pg::dump(pg::DumpInput { db_uri })?;
 
-    println!("Creating project...");
+    log::debug!("Creating project...");
     let repo = GitRepo::upsert(config::get_project_dir(), "lol-meh")?;
 
-    println!("Reading db...");
+    log::debug!("Reading db...");
     repo.sync_dump(dump_output.clone())?;
 
-    println!("Writing state changes...");
+    log::debug!("Writing state changes...");
     repo.commit_dump("Update dump")?;
+  } else if let Some(log_cli) = cli.subcommand_matches("log") {
+    log::debug!("Running log");
+    let repo = GitRepo::upsert(config::get_project_dir(), "lol-meh")?;
 
-    // println!("HEYY {}", dump_output);
+    let mut commit_iterator = repo.commit_iterator()?;
+
+    let commit = commit_iterator.nth(0).unwrap()?;
+    log::debug!("* {} {}", commit.hash, commit.message);
   }
 
   Ok(())

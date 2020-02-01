@@ -162,8 +162,6 @@ impl GitRepo {
     return Ok(());
   }
 
-  // pub fn checkout(&self, hash: String) {}
-
   pub fn commit_iterator(&self) -> Result<CommitIterator, Box<dyn StdError>> {
     log::debug!("Getting revwalk...");
 
