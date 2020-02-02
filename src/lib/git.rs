@@ -14,9 +14,10 @@ pub struct GitRepo {
   repo: Repository,
 }
 
-pub struct Commit {
+pub struct Commit<'repo> {
   pub hash: String,
   pub message: String,
+  raw_commit: git2::Commit<'repo>,
 }
 
 pub struct CommitIterator<'repo> {
@@ -24,10 +25,13 @@ pub struct CommitIterator<'repo> {
   revision_walker: git2::Revwalk<'repo>,
 }
 
-impl<'a> Iterator for CommitIterator<'a> {
-  type Item = Result<Commit, Box<dyn StdError>>;
+type DynError = Box<dyn StdError>;
+type DynResult<T> = Result<T, DynError>;
 
-  fn next(&mut self) -> Option<Result<Commit, Box<dyn StdError>>> {
+impl<'repo> Iterator for CommitIterator<'repo> {
+  type Item = Result<Commit<'repo>, DynError>;
+
+  fn next(&mut self) -> Option<DynResult<Commit<'repo>>> {
     let oid: Option<Result<git2::Oid, git2::Error>> = self.revision_walker.next();
 
     log::debug!("Iterating {:?}", oid);
@@ -36,7 +40,7 @@ impl<'a> Iterator for CommitIterator<'a> {
       return None;
     }
 
-    let oid: Result<git2::Oid, Box<dyn StdError>> = oid.unwrap().map_err(Box::from);
+    let oid: DynResult<git2::Oid> = oid.unwrap().map_err(Box::from);
     let oid = oid.map(|oid| {
       return format!("{}", oid);
     });
@@ -54,10 +58,7 @@ impl<'a> Iterator for CommitIterator<'a> {
 }
 
 impl GitRepo {
-  pub fn upsert(
-    cid_dir: impl AsRef<Path>,
-    name: &str,
-  ) -> Result<GitRepo, Box<dyn std::error::Error>> {
+  pub fn upsert(cid_dir: impl AsRef<Path>, name: &str) -> DynResult<GitRepo> {
     let repo_path = PathBuf::from(cid_dir.as_ref().join(name));
 
     // This method will automatically:
@@ -76,12 +77,13 @@ impl GitRepo {
 }
 
 impl GitRepo {
-  pub fn find_commit_by_id(&self, hash: String) -> Result<Commit, Box<dyn StdError>> {
+  pub fn find_commit_by_id(&self, hash: String) -> DynResult<Commit> {
     let commit = self.repo.find_commit(git2::Oid::from_str(&hash)?)?;
 
     return Ok(Commit {
       hash,
       message: String::from(commit.message().unwrap()),
+      raw_commit: commit,
     });
   }
 
@@ -94,7 +96,7 @@ impl GitRepo {
     return fs::write(self.absolute_sql_path(), dump);
   }
 
-  pub fn commit_dump(&self, message: &str) -> Result<(), Box<dyn std::error::Error>> {
+  pub fn commit_dump(&self, message: &str) -> DynResult<()> {
     let mut repo_index = self.repo.index()?;
 
     // Get the old tree first that we will use to simulate `git diff --cached`
@@ -162,7 +164,7 @@ impl GitRepo {
     return Ok(());
   }
 
-  pub fn commit_iterator(&self) -> Result<CommitIterator, Box<dyn StdError>> {
+  pub fn commit_iterator(&self) -> DynResult<CommitIterator> {
     log::debug!("Getting revwalk...");
 
     let mut revision_walker = self.repo.revwalk()?;
@@ -174,6 +176,22 @@ impl GitRepo {
       git_repo: self,
       revision_walker: revision_walker,
     });
+  }
+
+  pub fn get_dump_at_commit(&self, hash: String) -> DynResult<String> {
+    let commit = self.find_commit_by_id(hash)?;
+    let commit_tree = commit.raw_commit.tree()?;
+    let sql = commit_tree.get_path(Path::new(&self.sql_path))?;
+    let sql = sql.to_object(&self.repo)?;
+    let sql = sql
+      .as_blob()
+      .expect(&format!(
+        "{} is not a blob",
+        self.sql_path.to_str().unwrap()
+      ))
+      .content();
+
+    return Ok(String::from(std::str::from_utf8(sql)?));
   }
 }
 

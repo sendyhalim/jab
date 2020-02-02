@@ -23,6 +23,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
   let log = SubCommand::with_name("log").about("Show list of changes log");
 
+  let show = SubCommand::with_name("show")
+    .about("Show dump for a specific commit")
+    .arg(Arg::with_name("commit-hash").takes_value(true));
+
   let cli = Cli::new("CID")
     .version("0.0.1")
     .author("Sendy Halim <sendyhalim93@gmail.com>")
@@ -35,6 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     .subcommand(commit)
     .subcommand(log)
+    .subcommand(show)
     .get_matches();
 
   if let Some(commit_cli) = cli.subcommand_matches("commit") {
@@ -56,10 +61,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::debug!("Running log");
     let repo = GitRepo::upsert(config::get_project_dir(), "lol-meh")?;
 
-    let mut commit_iterator = repo.commit_iterator()?;
+    let commit_iterator = repo.commit_iterator()?;
 
-    let commit = commit_iterator.nth(0).unwrap()?;
-    log::debug!("* {} {}", commit.hash, commit.message);
+    for commit in commit_iterator {
+      let commit = commit?;
+      println!("* {} {}", commit.hash, commit.message);
+    }
+  } else if let Some(show_cli) = cli.subcommand_matches("show") {
+    let commit_hash = show_cli.value_of("commit-hash").unwrap();
+
+    let repo = GitRepo::upsert(config::get_project_dir(), "lol-meh")?;
+
+    log::debug!("Reading commit...");
+    let dump = repo.get_dump_at_commit(String::from(commit_hash))?;
+
+    println!("LALA \n {}", dump);
   }
 
   Ok(())
