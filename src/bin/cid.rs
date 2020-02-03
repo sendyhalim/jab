@@ -11,6 +11,10 @@ use lib::git::GitRepo;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
   env_logger::init();
 
+  let create = SubCommand::with_name("create")
+    .about("Create a project")
+    .arg(Arg::with_name("name").takes_value(true));
+
   let commit = SubCommand::with_name("commit")
     .about("Commit current db state")
     .arg(
@@ -27,6 +31,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     .about("Show dump for a specific commit")
     .arg(Arg::with_name("commit-hash").takes_value(true));
 
+  let restore = SubCommand::with_name("restore")
+    .about("Restore dump for a specific commit")
+    .arg(Arg::with_name("commit-hash").takes_value(true));
+
   let cli = Cli::new("CID")
     .version("0.0.1")
     .author("Sendy Halim <sendyhalim93@gmail.com>")
@@ -37,12 +45,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
        your previous db state.\
        ",
     )
+    .subcommand(create)
     .subcommand(commit)
     .subcommand(log)
     .subcommand(show)
+    .subcommand(restore)
     .get_matches();
 
-  if let Some(commit_cli) = cli.subcommand_matches("commit") {
+  let project_dir = config::get_project_dir();
+  let repo_path = project_dir.join("lol-meh");
+
+  if let Some(create_cli) = cli.subcommand_matches("create") {
+    let project_name = create_cli.value_of("name").unwrap();
+
+    log::debug!("Creating project...");
+
+    let repo = GitRepo::upsert(project_dir.join(project_name))?;
+
+    println!("Done creating {}", project_name);
+  } else if let Some(commit_cli) = cli.subcommand_matches("commit") {
     let db_uri = commit_cli
       .value_of("database-uri")
       .expect("db_uri shouldn't be null");
@@ -50,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dump_output = pg::dump(pg::DumpInput { db_uri })?;
 
     log::debug!("Creating project...");
-    let repo = GitRepo::upsert(config::get_project_dir(), "lol-meh")?;
+    let repo = GitRepo::new(repo_path)?;
 
     log::debug!("Reading db...");
     repo.sync_dump(dump_output.clone())?;
@@ -59,8 +80,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     repo.commit_dump("Update dump")?;
   } else if let Some(log_cli) = cli.subcommand_matches("log") {
     log::debug!("Running log");
-    let repo = GitRepo::upsert(config::get_project_dir(), "lol-meh")?;
 
+    let repo = GitRepo::new(repo_path)?;
     let commit_iterator = repo.commit_iterator()?;
 
     for commit in commit_iterator {
@@ -69,13 +90,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
   } else if let Some(show_cli) = cli.subcommand_matches("show") {
     let commit_hash = show_cli.value_of("commit-hash").unwrap();
-
-    let repo = GitRepo::upsert(config::get_project_dir(), "lol-meh")?;
+    let repo = GitRepo::new(repo_path)?;
 
     log::debug!("Reading commit...");
+
     let dump = repo.get_dump_at_commit(String::from(commit_hash))?;
 
-    println!("LALA \n {}", dump);
+    println!("{}", dump);
+  } else if let Some(restore_cli) = cli.subcommand_matches("restore") {
+    let commit_hash = restore_cli.value_of("commit-hash").unwrap();
+    let repo = GitRepo::new(repo_path)?;
+
+    log::debug!("Reading commit...");
+
+    let dump = repo.get_dump_at_commit(String::from(commit_hash))?;
+
+    // Restore dump
+    // let repo = ;
   }
 
   Ok(())
