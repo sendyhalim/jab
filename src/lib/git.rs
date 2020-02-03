@@ -7,8 +7,10 @@ use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 
+type DynError = Box<dyn StdError>;
+type DynResult<T> = Result<T, DynError>;
+
 pub struct GitRepo {
-  pub initiated: bool,
   pub repo_path: PathBuf,
   sql_path: PathBuf,
   repo: Repository,
@@ -24,9 +26,6 @@ pub struct CommitIterator<'repo> {
   git_repo: &'repo GitRepo,
   revision_walker: git2::Revwalk<'repo>,
 }
-
-type DynError = Box<dyn StdError>;
-type DynResult<T> = Result<T, DynError>;
 
 impl<'repo> Iterator for CommitIterator<'repo> {
   type Item = Result<Commit<'repo>, DynError>;
@@ -45,21 +44,31 @@ impl<'repo> Iterator for CommitIterator<'repo> {
       return format!("{}", oid);
     });
 
-    let commit = oid
-      .map(|oid| {
-        return format!("{}", oid);
-      })
-      .and_then(|oid| {
-        return self.git_repo.find_commit_by_id(oid);
-      });
+    let commit = oid.map(|oid| format!("{}", oid)).and_then(|oid| {
+      return self.git_repo.find_commit_by_id(oid);
+    });
 
     return Some(commit);
   }
 }
 
 impl GitRepo {
-  pub fn upsert(cid_dir: impl AsRef<Path>, name: &str) -> DynResult<GitRepo> {
-    let repo_path = PathBuf::from(cid_dir.as_ref().join(name));
+  fn default_sql_path() -> PathBuf {
+    return PathBuf::from("dump.sql");
+  }
+
+  pub fn new(repo_path: impl AsRef<Path>) -> Result<GitRepo, DynError> {
+    let repo = Repository::discover(repo_path.as_ref())?;
+
+    return Ok(GitRepo {
+      repo_path: PathBuf::from(repo_path.as_ref()),
+      sql_path: GitRepo::default_sql_path(),
+      repo,
+    });
+  }
+
+  pub fn upsert(repo_path: impl AsRef<Path>) -> DynResult<GitRepo> {
+    let repo_path = PathBuf::from(repo_path.as_ref());
 
     // This method will automatically:
     // - Creates dir recursively
@@ -67,12 +76,11 @@ impl GitRepo {
     // - Will not do anything if repo is already there (e.g. it'll stop if there's commit)
     let repo = Repository::init(&repo_path)?;
 
-    Ok(GitRepo {
-      initiated: true,
+    return Ok(GitRepo {
       repo_path: repo_path,
-      sql_path: PathBuf::from("dump.sql"), // Relative to repo_path
+      sql_path: GitRepo::default_sql_path(), // Relative to repo_path
       repo,
-    })
+    });
   }
 }
 
