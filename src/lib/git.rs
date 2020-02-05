@@ -2,8 +2,6 @@ use git2;
 use git2::Repository;
 use log;
 use std::error::Error as StdError;
-use std::fs;
-use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -11,8 +9,6 @@ type DynError = Box<dyn StdError>;
 type DynResult<T> = Result<T, DynError>;
 
 pub struct GitRepo {
-  pub repo_path: PathBuf,
-  sql_path: PathBuf,
   repo: Repository,
 }
 
@@ -53,18 +49,10 @@ impl<'repo> Iterator for CommitIterator<'repo> {
 }
 
 impl GitRepo {
-  fn default_sql_path() -> PathBuf {
-    return PathBuf::from("dump.sql");
-  }
-
   pub fn new(repo_path: impl AsRef<Path>) -> Result<GitRepo, DynError> {
     let repo = Repository::discover(repo_path.as_ref())?;
 
-    return Ok(GitRepo {
-      repo_path: PathBuf::from(repo_path.as_ref()),
-      sql_path: GitRepo::default_sql_path(),
-      repo,
-    });
+    return Ok(GitRepo { repo });
   }
 
   pub fn upsert(repo_path: impl AsRef<Path>) -> DynResult<GitRepo> {
@@ -76,11 +64,7 @@ impl GitRepo {
     // - Will not do anything if repo is already there (e.g. it'll stop if there's commit)
     let repo = Repository::init(&repo_path)?;
 
-    return Ok(GitRepo {
-      repo_path: repo_path,
-      sql_path: GitRepo::default_sql_path(), // Relative to repo_path
-      repo,
-    });
+    return Ok(GitRepo { repo });
   }
 }
 
@@ -95,22 +79,14 @@ impl GitRepo {
     });
   }
 
-  pub fn absolute_sql_path(&self) -> PathBuf {
-    return self.repo_path.join(&self.sql_path);
-  }
-
-  pub fn sync_dump(&self, dump: Vec<u8>) -> io::Result<()> {
-    // Update content to file in the repo
-    return fs::write(self.absolute_sql_path(), dump);
-  }
-
-  pub fn commit_dump(&self, message: &str) -> DynResult<()> {
+  pub fn commit_file(&self, filepath: impl AsRef<Path>, message: &str) -> DynResult<()> {
     let mut repo_index = self.repo.index()?;
+    let filepath = PathBuf::from(filepath.as_ref());
 
     // Get the old tree first that we will use to simulate `git diff --cached`
     let old_tree = self.repo.find_tree(repo_index.write_tree()?)?;
 
-    repo_index.add_path(&self.sql_path)?;
+    repo_index.add_path(filepath.as_ref())?;
     repo_index.write()?;
 
     log::debug!("Getting the oid for write tree");
@@ -144,7 +120,7 @@ impl GitRepo {
       log::debug!(
         "Found repo head: {:?}, adding {:?} to index path",
         head_commit,
-        self.sql_path
+        filepath
       );
 
       // Simulates `git diff --cached`
@@ -186,17 +162,19 @@ impl GitRepo {
     });
   }
 
-  pub fn get_dump_at_commit(&self, hash: String) -> DynResult<Vec<u8>> {
+  pub fn get_file_content_at_commit(
+    &self,
+    filepath: impl AsRef<Path>,
+    hash: String,
+  ) -> DynResult<Vec<u8>> {
+    let filepath = PathBuf::from(filepath.as_ref());
     let commit = self.find_commit_by_id(hash)?;
     let commit_tree = commit.raw_commit.tree()?;
-    let sql = commit_tree.get_path(Path::new(&self.sql_path))?;
+    let sql = commit_tree.get_path(filepath.as_ref())?;
     let sql = sql.to_object(&self.repo)?;
     let sql = sql
       .as_blob()
-      .expect(&format!(
-        "{} is not a blob",
-        self.sql_path.to_str().unwrap()
-      ))
+      .expect(&format!("{:?} is not a blob", filepath))
       .content();
 
     return Ok(Vec::from(sql));
@@ -230,8 +208,8 @@ mod test {
       GitRepo::upsert("/tmp", "test-repo").unwrap();
 
       assert!(PathBuf::from(&repo_path).exists());
-      assert!(PathBuf::from(&repo_path).join(".git").exists());
     }
+    assert!(PathBuf::from(&repo_path).join(".git").exists());
   }
 
   mod commit {
