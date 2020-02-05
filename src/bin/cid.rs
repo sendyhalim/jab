@@ -1,5 +1,6 @@
 use clap::App as Cli;
 use clap::Arg;
+use clap::ArgMatches;
 use clap::SubCommand;
 use log;
 
@@ -33,7 +34,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
   let restore = SubCommand::with_name("restore")
     .about("Restore dump for a specific commit")
-    .arg(Arg::with_name("commit-hash").takes_value(true));
+    .arg(Arg::with_name("commit-hash").takes_value(true))
+    .arg(
+      Arg::with_name("database-uri")
+        .long("database-uri")
+        .takes_value(true)
+        .required(true)
+        .help(r#"Database uri, for example: --database-uri="user:secret@localhost/mydb""#),
+    );
 
   let cli = Cli::new("CID")
     .version("0.0.1")
@@ -53,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     .get_matches();
 
   let project_dir = config::get_project_dir();
-  let repo_path = project_dir.join("lol-meh");
+  let repo_path = project_dir.join("woi");
 
   if let Some(create_cli) = cli.subcommand_matches("create") {
     let project_name = create_cli.value_of("name").unwrap();
@@ -64,17 +72,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Done creating {}", project_name);
   } else if let Some(commit_cli) = cli.subcommand_matches("commit") {
-    let db_uri = commit_cli
-      .value_of("database-uri")
-      .expect("db_uri shouldn't be null");
-
+    let db_uri = String::from(get_db_uri(commit_cli));
     let dump_output = pg::dump(pg::DumpInput { db_uri })?;
 
     log::debug!("Creating project...");
     let repo = GitRepo::new(repo_path)?;
 
     log::debug!("Reading db...");
-    repo.sync_dump(dump_output.clone())?;
+    repo.sync_dump(dump_output)?;
 
     log::debug!("Writing state changes...");
     repo.commit_dump("Update dump")?;
@@ -94,20 +99,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     log::debug!("Reading commit...");
 
-    let dump = repo.get_dump_at_commit(String::from(commit_hash))?;
-
-    println!("{}", dump);
+  // let dump = repo.get_dump_at_commit(String::from(commit_hash))?;
   } else if let Some(restore_cli) = cli.subcommand_matches("restore") {
     let commit_hash = restore_cli.value_of("commit-hash").unwrap();
     let repo = GitRepo::new(repo_path)?;
 
     log::debug!("Reading commit...");
 
+    // TODO: This is impractical because it will unnecessarily increase the memory usage.
+    // but let's stick with this to target the functional feature first.
     let dump = repo.get_dump_at_commit(String::from(commit_hash))?;
+    let db_uri = String::from(get_db_uri(restore_cli));
+    let result = pg::restore(pg::RestoreInput { db_uri, sql: dump })?;
 
-    // Restore dump
-    // let repo = ;
+    log::debug!("Result {}", result);
+    println!("Restore {} done!", commit_hash);
   }
 
   Ok(())
+}
+
+fn get_db_uri<'a>(matches: &'a ArgMatches) -> &'a str {
+  return matches
+    .value_of("database-uri")
+    .expect("db_uri is required!");
 }

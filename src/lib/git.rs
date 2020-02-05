@@ -99,7 +99,7 @@ impl GitRepo {
     return self.repo_path.join(&self.sql_path);
   }
 
-  pub fn sync_dump(&self, dump: String) -> io::Result<()> {
+  pub fn sync_dump(&self, dump: Vec<u8>) -> io::Result<()> {
     // Update content to file in the repo
     return fs::write(self.absolute_sql_path(), dump);
   }
@@ -186,7 +186,7 @@ impl GitRepo {
     });
   }
 
-  pub fn get_dump_at_commit(&self, hash: String) -> DynResult<String> {
+  pub fn get_dump_at_commit(&self, hash: String) -> DynResult<Vec<u8>> {
     let commit = self.find_commit_by_id(hash)?;
     let commit_tree = commit.raw_commit.tree()?;
     let sql = commit_tree.get_path(Path::new(&self.sql_path))?;
@@ -199,7 +199,7 @@ impl GitRepo {
       ))
       .content();
 
-    return Ok(String::from(std::str::from_utf8(sql)?));
+    return Ok(Vec::from(sql));
   }
 }
 
