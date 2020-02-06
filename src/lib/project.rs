@@ -3,9 +3,19 @@ use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 
-pub struct ProjectConfig {
-  pub name: String,
+use crate::git::GitRepo;
+use crate::types::ResultDynError;
+
+pub struct CreateInput {
+  pub project_name: String,
   pub project_dir: PathBuf,
+  pub db_uri: String,
+}
+
+pub struct OpenInput {
+  pub project_dir: PathBuf,
+  pub project_name: String,
+  pub db_uri: String,
 }
 
 pub struct Project {
@@ -13,16 +23,42 @@ pub struct Project {
   project_dir: PathBuf,
   repo_path: PathBuf,
   sql_path: PathBuf,
+  db_uri: String,
 }
 
 impl Project {
-  pub fn open(config: ProjectConfig) -> Project {
-    return Project {
-      project_dir: config.project_dir.clone(),
-      name: config.name.clone(),
-      sql_path: PathBuf::from("dump.sql"),
-      repo_path: config.project_dir.join(config.name),
-    };
+  pub fn create(input: CreateInput) -> ResultDynError<Project> {
+    let repo_path = input.project_dir.join(&input.project_name);
+    let _repo = GitRepo::upsert(repo_path)?;
+
+    let project = Project::open(OpenInput {
+      project_dir: input.project_dir,
+      project_name: input.project_name,
+      db_uri: input.db_uri,
+    })?;
+
+    return Ok(project);
+  }
+
+  pub fn open(input: OpenInput) -> ResultDynError<Project> {
+    // TODO: Validate if project exists
+    return Ok(Project {
+      db_uri: input.db_uri,
+      project_dir: input.project_dir.clone(),
+      name: input.project_name.clone(),
+      sql_path: Project::default_sql_path(),
+      repo_path: input.project_dir.join(input.project_name),
+    });
+  }
+
+  fn default_sql_path() -> PathBuf {
+    return PathBuf::from("dump.sql");
+  }
+}
+
+impl Project {
+  pub fn db_uri(&self) -> &str {
+    return &self.db_uri;
   }
 
   pub fn project_dir(&self) -> &Path {
@@ -37,8 +73,8 @@ impl Project {
     return self.sql_path.as_ref();
   }
 
-  fn default_sql_path() -> PathBuf {
-    return PathBuf::from("dump.sql");
+  pub fn name(&self) -> &str {
+    return &self.name;
   }
 
   pub fn absolute_sql_path(&self) -> PathBuf {
