@@ -19,7 +19,7 @@ pub struct OpenProjectInput<'a> {
 pub trait ProjectManager {
   fn bootstrap() -> ResultDynError<()>;
   fn new(cid_config: CidConfig) -> Self;
-  fn create_project(&self, input: &CreateProjectInput) -> ResultDynError<Project>;
+  fn create_project(&mut self, input: &CreateProjectInput) -> ResultDynError<Project>;
   fn open_project(&self, input: &OpenProjectInput) -> ResultDynError<Project>;
 
   // fn open_project()

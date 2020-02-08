@@ -1,8 +1,9 @@
+use std::path::Path;
+use std::path::PathBuf;
+
 use git2;
 use git2::Repository;
 use log;
-use std::path::Path;
-use std::path::PathBuf;
 
 use crate::types::ResultDynError;
 
@@ -33,7 +34,7 @@ impl<'repo> Iterator for CommitIterator<'repo> {
       return None;
     }
 
-    let oid: ResultDynError<git2::Oid> = oid.unwrap().map_err(Box::from);
+    let oid: ResultDynError<git2::Oid> = oid.unwrap().map_err(failure::Error::from);
     let oid = oid.map(|oid| {
       return format!("{}", oid);
     });

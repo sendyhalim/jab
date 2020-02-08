@@ -2,10 +2,12 @@ use std::fs;
 use std::io;
 use std::process::Command;
 
+use failure::Fail;
+
 use crate::types::ResultDynError;
 
-pub struct DumpInput {
-  pub db_uri: String,
+pub struct DumpInput<'a> {
+  pub db_uri: &'a str,
 }
 
 pub fn dump(input: DumpInput) -> ResultDynError<Vec<u8>> {
@@ -19,14 +21,14 @@ pub fn dump(input: DumpInput) -> ResultDynError<Vec<u8>> {
   if err.len() > 0 {
     let err = io::Error::new(io::ErrorKind::Other, err);
 
-    return Err(Box::new(err));
+    return Err(err.into());
   }
 
   return Ok(output.stdout);
 }
 
-pub struct RestoreInput {
-  pub db_uri: String,
+pub struct RestoreInput<'a> {
+  pub db_uri: &'a str,
   pub sql: Vec<u8>,
 }
 
@@ -38,25 +40,35 @@ struct DbConnectionConfig {
   password: Option<String>,
 }
 
-impl DbConnectionConfig {
-  fn from(db_uri: String) -> ResultDynError<DbConnectionConfig> {
-    let parts: Vec<&str> = db_uri.split("/").collect();
-    let db_name = String::from(*parts.get(1).unwrap());
+#[derive(Debug, Clone, Fail)]
+pub enum DbConnectionError {
+  #[fail(display = "Invalid DB URI format: {}", db_uri)]
+  InvalidDbUriError { db_uri: String },
+}
 
-    let target_str = String::from(*parts.get(0).unwrap());
+impl DbConnectionConfig {
+  fn from(db_uri: &str) -> ResultDynError<DbConnectionConfig> {
+    let invalid_db_uri_error = DbConnectionError::InvalidDbUriError {
+      db_uri: String::from(db_uri),
+    };
+
+    let parts: Vec<&str> = db_uri.split("/").collect();
+    let db_name = parts.get(1).ok_or(invalid_db_uri_error.clone())?;
+
+    let target_str = String::from(*parts.get(0).ok_or(invalid_db_uri_error.clone())?);
     let parts: Vec<&str> = target_str.split("@").collect();
-    let credential_str = String::from(*parts.get(0).unwrap());
-    let host = String::from(*parts.get(1).unwrap());
+    let credential_str = String::from(*parts.get(0).ok_or(invalid_db_uri_error.clone())?);
+    let host = parts.get(1).ok_or(invalid_db_uri_error.clone())?;
 
     let parts: Vec<&str> = credential_str.split("@").collect();
-    let username = String::from(*parts.get(0).unwrap());
-    let password = parts.get(1).map(|pass| String::from(*pass));
+    let username = parts.get(0).ok_or(invalid_db_uri_error.clone())?;
+    let password = parts.get(1).map(|pass| (*pass).into());
 
     return Ok(DbConnectionConfig {
-      db_name,
-      username,
+      db_name: (*db_name).into(),
+      username: (*username).into(),
       password,
-      host,
+      host: (*host).into(),
     });
   }
 }
@@ -69,10 +81,7 @@ pub fn restore(input: RestoreInput) -> ResultDynError<String> {
   log::debug!("Writing dump to a temp file");
   fs::write(temp_file_path, input.sql)?;
 
-  let password = db_connection_config
-    .password
-    .or(Some(String::from("")))
-    .unwrap();
+  let password = db_connection_config.password.or(Some("".into())).unwrap();
 
   log::debug!("Running pg_restore");
   let mut command = Command::new("pg_restore");
@@ -97,7 +106,7 @@ pub fn restore(input: RestoreInput) -> ResultDynError<String> {
   if err.len() > 0 {
     let err = io::Error::new(io::ErrorKind::Other, err);
 
-    return Err(Box::new(err));
+    return Err(err.into());
   }
 
   let output = String::from_utf8(output.stdout)?;

@@ -7,16 +7,16 @@ use crate::git::CommitIterator;
 use crate::git::GitRepo;
 use crate::types::ResultDynError;
 
-pub struct CreateInput {
-  pub project_name: String,
-  pub project_dir: PathBuf,
-  pub db_uri: String,
+pub struct CreateInput<'a> {
+  pub project_name: &'a str,
+  pub project_dir: &'a Path,
+  pub db_uri: &'a str,
 }
 
-pub struct OpenInput {
-  pub project_dir: PathBuf,
-  pub project_name: String,
-  pub db_uri: String,
+pub struct OpenInput<'a> {
+  pub project_dir: &'a Path,
+  pub project_name: &'a str,
+  pub db_uri: &'a str,
 }
 
 pub struct Project {
@@ -29,11 +29,11 @@ pub struct Project {
 }
 
 impl Project {
-  pub fn create(input: CreateInput) -> ResultDynError<Project> {
+  pub fn create(input: &CreateInput) -> ResultDynError<Project> {
     let repo_path = input.project_dir.join(&input.project_name);
     let _repo = GitRepo::upsert(repo_path)?;
 
-    let project = Project::open(OpenInput {
+    let project = Project::open(&OpenInput {
       project_dir: input.project_dir,
       project_name: input.project_name,
       db_uri: input.db_uri,
@@ -42,15 +42,15 @@ impl Project {
     return Ok(project);
   }
 
-  pub fn open(input: OpenInput) -> ResultDynError<Project> {
+  pub fn open(input: &OpenInput) -> ResultDynError<Project> {
     let repo_path = input.project_dir.join(&input.project_name);
     let repo = GitRepo::new(repo_path.to_str().unwrap())?;
 
     // TODO: Validate if project exists
     return Ok(Project {
-      db_uri: input.db_uri,
-      project_dir: input.project_dir.clone(),
-      name: input.project_name.clone(),
+      db_uri: input.db_uri.into(),
+      project_dir: input.project_dir.into(),
+      name: input.project_name.into(),
       sql_path: Project::default_sql_path(),
       repo_path,
       repo,

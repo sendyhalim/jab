@@ -25,8 +25,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   MainProjectManager::bootstrap()?;
 
   log::debug!("Reading cid config");
-  let mut cid_config = CidConfig::read()?;
-  let project_manager: MainProjectManager = MainProjectManager::new(cid_config);
+  let cid_config = CidConfig::read()?;
+  let mut project_manager: MainProjectManager = MainProjectManager::new(cid_config);
 
   let create = SubCommand::with_name("create")
     .about("Create a project")
@@ -146,7 +146,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // but let's stick with this to target the functional feature first.
     let dump = project.get_dump_at_commit(commit_hash)?;
     let result = pg::restore(pg::RestoreInput {
-      db_uri: String::from(project.db_uri()),
+      db_uri: project.db_uri(),
       sql: dump,
     })?;
 
@@ -195,11 +195,11 @@ impl ProjectManager for MainProjectManager {
     return MainProjectManager { cid_config };
   }
 
-  fn create_project(&self, input: &CreateProjectInput) -> ResultDynError<Project> {
-    let project = Project::create(project::CreateInput {
-      project_dir: input.project_dir.to_path_buf(),
-      project_name: String::from(input.project_name),
-      db_uri: String::from(input.db_uri),
+  fn create_project(&mut self, input: &CreateProjectInput) -> ResultDynError<Project> {
+    let project = Project::create(&project::CreateInput {
+      project_dir: input.project_dir,
+      project_name: input.project_name,
+      db_uri: input.db_uri,
     })?;
 
     self.cid_config.register_project_config(ProjectConfig {
@@ -207,16 +207,16 @@ impl ProjectManager for MainProjectManager {
       db_uri: String::from(project.db_uri()),
     });
 
-    CidConfig::persist(self.cid_config)?;
+    CidConfig::persist(&self.cid_config)?;
 
     return Ok(project);
   }
 
   fn open_project(&self, input: &OpenProjectInput) -> ResultDynError<Project> {
-    return Project::open(project::OpenInput {
-      project_dir: input.project_dir.to_path_buf(),
-      project_name: String::from(input.project_name),
-      db_uri: String::from(input.db_uri),
+    return Project::open(&project::OpenInput {
+      project_dir: input.project_dir,
+      project_name: input.project_name,
+      db_uri: input.db_uri,
     });
   }
 }

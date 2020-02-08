@@ -38,13 +38,13 @@ impl CidConfig {
     return Ok(config);
   }
 
-  pub fn persist(config: CidConfig) -> ResultDynError<CidConfig> {
+  pub fn persist(config: &CidConfig) -> ResultDynError<()> {
     let config_path = CidConfig::get_path();
 
     let config_str = serde_json::to_string_pretty(&config)?;
     fs::write(config_path, config_str)?;
 
-    return Ok(config);
+    return Ok(());
   }
 
   pub fn get_path() -> PathBuf {
@@ -68,13 +68,12 @@ impl CidConfig {
   }
 
   pub fn project_config(&self, name: &str) -> ResultDynError<&ProjectConfig> {
-    return self.projects.get(name).ok_or(Box::new(
-      // TODO: refactor other error type aswell to be more specific
+    return self.projects.get(name).ok_or(
       ProjectConfigError::ProjectConfigDoesNotExist {
         name: String::from(name),
       }
-      .compat(),
-    ));
+      .into(),
+    );
   }
 }
 
