@@ -1,12 +1,10 @@
 use git2;
 use git2::Repository;
 use log;
-use std::error::Error as StdError;
 use std::path::Path;
 use std::path::PathBuf;
 
-type DynError = Box<dyn StdError>;
-type DynResult<T> = Result<T, DynError>;
+use crate::types::ResultDynError;
 
 pub struct GitRepo {
   repo: Repository,
@@ -24,9 +22,9 @@ pub struct CommitIterator<'repo> {
 }
 
 impl<'repo> Iterator for CommitIterator<'repo> {
-  type Item = Result<Commit<'repo>, DynError>;
+  type Item = ResultDynError<Commit<'repo>>;
 
-  fn next(&mut self) -> Option<DynResult<Commit<'repo>>> {
+  fn next(&mut self) -> Option<ResultDynError<Commit<'repo>>> {
     let oid: Option<Result<git2::Oid, git2::Error>> = self.revision_walker.next();
 
     log::debug!("Iterating {:?}", oid);
@@ -35,13 +33,13 @@ impl<'repo> Iterator for CommitIterator<'repo> {
       return None;
     }
 
-    let oid: DynResult<git2::Oid> = oid.unwrap().map_err(Box::from);
+    let oid: ResultDynError<git2::Oid> = oid.unwrap().map_err(Box::from);
     let oid = oid.map(|oid| {
       return format!("{}", oid);
     });
 
     let commit = oid.map(|oid| format!("{}", oid)).and_then(|oid| {
-      return self.git_repo.find_commit_by_id(oid);
+      return self.git_repo.find_commit_by_id(&oid);
     });
 
     return Some(commit);
@@ -49,13 +47,13 @@ impl<'repo> Iterator for CommitIterator<'repo> {
 }
 
 impl GitRepo {
-  pub fn new(repo_path: impl AsRef<Path>) -> Result<GitRepo, DynError> {
+  pub fn new(repo_path: impl AsRef<Path>) -> ResultDynError<GitRepo> {
     let repo = Repository::discover(repo_path.as_ref())?;
 
     return Ok(GitRepo { repo });
   }
 
-  pub fn upsert(repo_path: impl AsRef<Path>) -> DynResult<GitRepo> {
+  pub fn upsert(repo_path: impl AsRef<Path>) -> ResultDynError<GitRepo> {
     let repo_path = PathBuf::from(repo_path.as_ref());
 
     // This method will automatically:
@@ -69,17 +67,17 @@ impl GitRepo {
 }
 
 impl GitRepo {
-  pub fn find_commit_by_id(&self, hash: String) -> DynResult<Commit> {
-    let commit = self.repo.find_commit(git2::Oid::from_str(&hash)?)?;
+  pub fn find_commit_by_id(&self, hash: &str) -> ResultDynError<Commit> {
+    let commit = self.repo.find_commit(git2::Oid::from_str(hash)?)?;
 
     return Ok(Commit {
-      hash,
+      hash: String::from(hash),
       message: String::from(commit.message().unwrap()),
       raw_commit: commit,
     });
   }
 
-  pub fn commit_file(&self, filepath: impl AsRef<Path>, message: &str) -> DynResult<()> {
+  pub fn commit_file(&self, filepath: impl AsRef<Path>, message: &str) -> ResultDynError<()> {
     let mut repo_index = self.repo.index()?;
     let filepath = PathBuf::from(filepath.as_ref());
 
@@ -148,7 +146,7 @@ impl GitRepo {
     return Ok(());
   }
 
-  pub fn commit_iterator(&self) -> DynResult<CommitIterator> {
+  pub fn commit_iterator(&self) -> ResultDynError<CommitIterator> {
     log::debug!("Getting revwalk...");
 
     let mut revision_walker = self.repo.revwalk()?;
@@ -165,8 +163,8 @@ impl GitRepo {
   pub fn get_file_content_at_commit(
     &self,
     filepath: impl AsRef<Path>,
-    hash: String,
-  ) -> DynResult<Vec<u8>> {
+    hash: &str,
+  ) -> ResultDynError<Vec<u8>> {
     let filepath = PathBuf::from(filepath.as_ref());
     let commit = self.find_commit_by_id(hash)?;
     let commit_tree = commit.raw_commit.tree()?;
