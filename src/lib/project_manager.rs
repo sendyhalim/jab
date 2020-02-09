@@ -21,6 +21,6 @@ pub trait ProjectManager {
   fn new(cid_config: CidConfig) -> Self;
   fn create_project(&mut self, input: &CreateProjectInput) -> ResultDynError<Project>;
   fn open_project(&self, input: &OpenProjectInput) -> ResultDynError<Project>;
-
+  fn get_project_names(&self) -> ResultDynError<Vec<&str>>;
   // fn open_project()
 }
