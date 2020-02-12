@@ -4,7 +4,7 @@ CID is a database state management tool, think of it as git but for database. Yo
 
 ## Installation
 ### Manual (requires rust)
-```
+```bash
 git clone git@github.com:sendyhalim/cid.git
 
 make install
@@ -14,7 +14,7 @@ make install
 TODO
 
 ### Usage
-```
+```bash
 # First create project.
 # Currently only supports postgres.
 cid project create awesomestuff --database-uri=asd
