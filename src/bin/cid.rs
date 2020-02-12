@@ -145,11 +145,18 @@ fn handle_project_cli(cli: &ArgMatches) -> ResultDynError<()> {
 
     log::debug!("Running log");
 
-    let commit_iterator = project.commit_iterator()?;
+    let commit_iterator_result = project.commit_iterator();
 
-    for commit in commit_iterator {
-      let commit = commit?;
-      println!("* {} {}", commit.hash, commit.message);
+    if let Err(err) = commit_iterator_result {
+      println!("{}", err);
+      return Ok(());
+    } else {
+      let commit_iterator = commit_iterator_result.unwrap();
+
+      for commit in commit_iterator {
+        let commit = commit?;
+        println!("* {} {}", commit.hash, commit.message);
+      }
     }
   } else if let Some(show_cli) = cli.subcommand_matches("show") {
     let project = project_manager.open_project_from_args(show_cli)?;

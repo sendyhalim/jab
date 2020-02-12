@@ -1,11 +1,18 @@
 use std::path::Path;
 use std::path::PathBuf;
 
+use failure::Fail;
 use git2;
 use git2::Repository;
 use log;
 
 use crate::types::ResultDynError;
+
+#[derive(Debug, Fail)]
+pub enum GitRepoError {
+  #[fail(display = "Repo is empty")]
+  EmptyRepoError,
+}
 
 pub struct GitRepo {
   repo: Repository,
@@ -148,11 +155,16 @@ impl GitRepo {
   }
 
   pub fn commit_iterator(&self) -> ResultDynError<CommitIterator> {
-    log::debug!("Getting revwalk...");
+    log::debug!("Getting revwalk");
 
     let mut revision_walker = self.repo.revwalk()?;
 
-    // Start walking from HEAD
+    if self.repo.is_empty()? {
+      return Err(GitRepoError::EmptyRepoError.into());
+    }
+
+    log::debug!("Moving pointer to HEAD");
+
     revision_walker.push_head()?;
 
     return Ok(CommitIterator {
