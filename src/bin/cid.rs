@@ -112,7 +112,7 @@ fn handle_project_cli(cli: &ArgMatches) -> ResultDynError<()> {
   if let Some(create_cli) = cli.subcommand_matches("create") {
     log::debug!("Creating project...");
 
-    let project_name = create_cli.value_of("project").unwrap();
+    let project_name = create_cli.value_of("name").unwrap();
     let db_uri = create_cli.value_of("database-uri").unwrap();
 
     let project = project_manager.create_project(&CreateProjectInput {
