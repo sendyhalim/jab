@@ -13,6 +13,7 @@ jobs:
     name: Build
     runs-on: macos-latest
     strategy:
+      fail-fast: false
       matrix:
         target:
           - x86_64-unknown-linux-musl # Full static link
