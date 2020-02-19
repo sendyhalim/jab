@@ -16,7 +16,7 @@ jobs:
       matrix:
         target:
           - x86_64-unknown-linux-musl # Full static link
-          - "" # On macos
+          - x86_64-apple-darwin
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
