@@ -122,7 +122,7 @@ fn handle_project_cli(cli: &ArgMatches) -> ResultDynError<()> {
     })?;
 
     println!("Done creating {}", project.name());
-  } else if let Some(_) = cli.subcommand_matches("list") {
+  } else if cli.subcommand_matches("list").is_some() {
     println!("Available projects:");
 
     project_manager
@@ -257,7 +257,7 @@ impl ProjectManager for MainProjectManager {
       .cid_config
       .projects
       .values()
-      .map(|config| return config.name.as_ref())
+      .map(|config| config.name.as_ref())
       .collect();
 
     return Ok(project_names);
