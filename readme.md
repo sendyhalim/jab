@@ -17,7 +17,7 @@ TODO
 ```bash
 # First create project.
 # Currently only supports postgres.
-cid project create awesomestuff --database-uri=asd
+cid project create awesomestuff --database-uri="username:password@localhost:5433"
 
 # Start commiting your db
 cid project commit awesomestuff --message "my first commit"
