@@ -5,7 +5,7 @@ on:
   push:
     # Sequence of patterns matched against refs/tags
     tags:
-    - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+    - '*' # Build on every tag release
 
 name: build_artifacts
 
@@ -16,14 +16,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        target: [x86_64-apple-darwin, x86_64-unknown-linux-musl]
         include:
-          - os: macos-latest
+          - target: x86_64-apple-darwin
             release_bin_name: cid.macos
-            target: x86_64-apple-darwin
-          - os: ubuntu-latest
+          - target: x86_64-unknown-linux-musl
             release_bin_name: cid.linux
-            target: x86_64-unknown-linux-musl
     steps:
       - uses: actions/checkout@v2
 
@@ -33,21 +31,24 @@ jobs:
           target: ${{ matrix.target }}
           override: true
 
-      - name: (Linux) Install dependencies
-        run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends \
-          pkg-config \
-          libssl-dev
-        if: matrix.os == 'ubuntu-latest'
-
       - name: (Linux) Add rust target x86_64-unknown-linux-musl
         run: rustup target add x86_64-unknown-linux-musl
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+
+      - name: (Linux) Install dependencies
+        run: |
+          brew install filosottile/musl-cross/musl-cross && \
+          ln -s /usr/local/bin/x86_64-linux-musl-gcc /usr/local/bin/musl-gcc
+        if: matrix.target == 'x86_64-unknown-linux-musl'
 
       - uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --target=${{ matrix.target }}
+
+      - name: Zip build result
+        run: |
+          zip --junk-paths ./target/${{ matrix.target }}/release/cid.zip ./target/${{ matrix.target }}/release/cid
 
       - name: Create Release
         id: create_release
@@ -71,5 +72,6 @@ jobs:
           # See below blog post for more info:
           # https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./target/${{ matrix.target }}/release/cid
+          asset_path: ./target/${{ matrix.target }}/release/cid.zip
           asset_name: ${{ matrix.release_bin_name }}
+          asset_content_type: application/zip
