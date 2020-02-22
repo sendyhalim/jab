@@ -11,13 +11,18 @@ name: build_artifacts
 jobs:
   build:
     name: Build
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        target:
-          - x86_64-unknown-linux-musl # Full static link
-          - x86_64-apple-darwin
+        os: [macos-latest, ubuntu-latest]
+        include:
+          - os: macos-latest
+            release_name: macos
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            release_name: linux
+            target: x86_64-unknown-linux-musl # Full static link on linux
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -27,10 +32,9 @@ jobs:
           override: true
       - uses: actions-rs/cargo@v1
         with:
-          use-cross: true
           command: build
           args: --release --target=${{ matrix.target }}
       - uses: actions/upload-artifact@v1
         with:
-          name: cid.${{ matrix.target }}
+          name: cid.${{ matrix.release_name }}
           path: ./target/release/cid
