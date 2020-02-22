@@ -22,19 +22,33 @@ jobs:
             target: x86_64-apple-darwin
           - os: ubuntu-latest
             release_name: linux
-            target: x86_64-unknown-linux-musl # Full static link on linux
+            target: x86_64-unknown-linux-musl
     steps:
       - uses: actions/checkout@v2
+
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           target: ${{ matrix.target }}
           override: true
+
+      - name: [Linux] Install dependencies
+        run: |
+            sudo apt-get update && apt-get install -y --no-install-recommends \
+            pkg-config \
+            libssl-dev
+        if: matrix.os == 'ubuntu-latest'
+
+      - name: [Linux] Add rust target x86_64-unknown-linux-musl
+        run: rustup target add x86_64-unknown-linux-musl
+        if: matrix.os == 'ubuntu-latest'
+
       - uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --target=${{ matrix.target }}
+
       - uses: actions/upload-artifact@v1
         with:
           name: cid.${{ matrix.release_name }}
-          path: ./target/release/cid
+          path: ./target/${{ matrix.target }}/release/cid
