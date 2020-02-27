@@ -18,6 +18,10 @@ use lib::project_manager::OpenProjectInput;
 use lib::project_manager::ProjectManager;
 use lib::types::ResultDynError;
 
+pub mod built_info {
+  include!(concat!(env!("OUT_DIR"), "/built.rs"));
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
   env_logger::init();
 
@@ -25,16 +29,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   MainProjectManager::bootstrap()?;
 
   let cli = Cli::new("CID")
-    .version("0.0.1")
-    .author("Sendy Halim <sendyhalim93@gmail.com>")
+    .version(built_info::PKG_VERSION)
+    .author(built_info::PKG_AUTHORS)
     .setting(clap::AppSettings::ArgRequiredElseHelp)
-    .about(
-      "\
-       CID is a database state management tool, think of it as git but for\
-       database. You can commit your current db state and checkout to\
-       your previous db state.\
-       ",
-    )
+    .about(built_info::PKG_DESCRIPTION)
     .subcommand(project_cmd())
     .get_matches();
 
