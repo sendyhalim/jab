@@ -16,11 +16,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [x86_64-apple-darwin, x86_64-unknown-linux-musl]
+        target: [ubuntu-latest, macos-latest]
         include:
-          - target: x86_64-apple-darwin
+          - os: macos-latest
+            target: x86_64-apple-darwin
             release_bin_name: cid.macos
-          - target: x86_64-unknown-linux-musl
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
             release_bin_name: cid.linux
     steps:
       - uses: actions/checkout@v2
@@ -30,16 +32,6 @@ jobs:
           toolchain: stable
           target: ${{ matrix.target }}
           override: true
-
-      - name: (Linux) Add rust target x86_64-unknown-linux-musl
-        run: rustup target add x86_64-unknown-linux-musl
-        if: matrix.target == 'x86_64-unknown-linux-musl'
-
-      - name: (Linux) Install dependencies
-        run: |
-          brew install filosottile/musl-cross/musl-cross && \
-          ln -s /usr/local/bin/x86_64-linux-musl-gcc /usr/local/bin/musl-gcc
-        if: matrix.target == 'x86_64-unknown-linux-musl'
 
       - uses: actions-rs/cargo@v1
         with:
