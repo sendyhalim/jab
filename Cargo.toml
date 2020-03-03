@@ -4,8 +4,8 @@ version = "0.0.1"
 authors = ["Sendy Halim <sendyhalim93@gmail.com>"]
 edition = "2018"
 description = """\
-  CID is a database state management tool, think of it as git but for\
-  database. You can commit your current db state and checkout to\
+  CID is a database state management tool, think of it as git but for \
+  database. You can commit your current db state and checkout to \
   your previous db state.\
 """
 
