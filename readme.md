@@ -1,6 +1,9 @@
 # Cid
 CID is a database state management tool, think of it as git but for database. You can commit your current db state and checkout to your previous db state.
 
+## Notes
+* Currently only supports postgres.
+* This project only works if you have `ON DELETE CASCADE` on every FK constraints otherwise we can't do clean restore (hopefully this will change in the future).
 
 ## Installation
 ### Manual (requires rust)
@@ -11,7 +14,7 @@ make install
 ```
 
 ### Download
-TODO
+Dynamically linked binaries are only available for macos and linux. Go [here](https://github.com/sendyhalim/cid/releases/tag/0.0.1).
 
 ### Usage
 ```bash
