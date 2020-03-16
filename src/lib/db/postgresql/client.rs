@@ -44,7 +44,10 @@ struct DbConnectionConfig {
 #[derive(Debug, Clone, Fail)]
 pub enum DbConnectionError {
   #[fail(display = "Error when parsing db uri {}, parsing step: ", db_uri)]
-  DbUriParseError { parsing_step: String, db_uri: String },
+  DbUriParseError {
+    parsing_step: String,
+    db_uri: String,
+  },
 }
 
 impl DbConnectionError {
@@ -58,12 +61,12 @@ impl DbConnectionError {
 
 #[derive(Debug)]
 enum DbUriParsingStep {
-  ParseDbName,
-  ParseCredentialAndHostCandidate,
-  ParseHostAndPort,
-  ParseHost,
-  ParseCredential,
-  ParseCredentialUsername,
+  DbName,
+  CredentialAndHostCandidate,
+  HostAndPort,
+  Host,
+  Credential,
+  CredentialUsername,
 }
 
 impl ToString for DbUriParsingStep {
@@ -74,27 +77,35 @@ impl ToString for DbUriParsingStep {
 
 impl DbConnectionConfig {
   fn from(db_uri: &str) -> ResultDynError<DbConnectionConfig> {
-    let parts: Vec<&str> = db_uri.split("/").collect();
-    let db_name = parts.get(1)
-      .ok_or(DbConnectionError::parse_error(db_uri, DbUriParsingStep::ParseDbName))?;
+    let parts: Vec<&str> = db_uri.split('/').collect();
+    let db_name = parts
+      .get(1)
+      .ok_or({ DbConnectionError::parse_error(db_uri, DbUriParsingStep::DbName) })?;
 
-    let target_str = String::from(
-      *parts.get(0).ok_or(DbConnectionError::parse_error(db_uri, DbUriParsingStep::ParseCredentialAndHostCandidate))?
-    );
-    let parts: Vec<&str> = target_str.split("@").collect();
+    let target_str = String::from(*parts.get(0).ok_or({
+      DbConnectionError::parse_error(db_uri, DbUriParsingStep::CredentialAndHostCandidate)
+    })?);
+
+    let parts: Vec<&str> = target_str.split('@').collect();
     let credential_str = String::from(
-      *parts.get(0).ok_or(DbConnectionError::parse_error(db_uri, DbUriParsingStep::ParseCredential))?
+      *parts
+        .get(0)
+        .ok_or({ DbConnectionError::parse_error(db_uri, DbUriParsingStep::Credential) })?,
     );
-    let host_and_port = parts.get(1)
-      .ok_or(DbConnectionError::parse_error(db_uri, DbUriParsingStep::ParseHostAndPort))?;
+    let host_and_port = parts
+      .get(1)
+      .ok_or({ DbConnectionError::parse_error(db_uri, DbUriParsingStep::HostAndPort) })?;
 
-    let host_and_port_parts: Vec<&str> = host_and_port.split(":").collect();
-    let host = host_and_port_parts.get(0)
-      .ok_or(DbConnectionError::parse_error(db_uri, DbUriParsingStep::ParseHost))?;
-    let port = host_and_port_parts.get(1).map(|port|(*port).into());
+    let host_and_port_parts: Vec<&str> = host_and_port.split(':').collect();
+    let host = host_and_port_parts
+      .get(0)
+      .ok_or({ DbConnectionError::parse_error(db_uri, DbUriParsingStep::Host) })?;
+    let port = host_and_port_parts.get(1).map(|port| (*port).into());
 
-    let parts: Vec<&str> = credential_str.split(":").collect();
-    let username = parts.get(0).ok_or(DbConnectionError::parse_error(db_uri, DbUriParsingStep::ParseCredentialUsername))?;
+    let parts: Vec<&str> = credential_str.split(':').collect();
+    let username = parts
+      .get(0)
+      .ok_or({ DbConnectionError::parse_error(db_uri, DbUriParsingStep::CredentialUsername) })?;
     let password = parts.get(1).map(|pass| (*pass).into());
 
     return Ok(DbConnectionConfig {
@@ -107,6 +118,13 @@ impl DbConnectionConfig {
   }
 }
 
+/// The cleaniest way to do clean restore is by doing below steps:
+/// * Drop DB.
+/// * Create DB.
+/// * Run pg_restore.
+///
+/// Note that maybe this will change in the future, we would
+/// probably need to write our own version of pg_restore and pg_dump.
 pub fn restore(input: RestoreInput) -> ResultDynError<String> {
   let db_connection_config = DbConnectionConfig::from(input.db_uri)?;
   let temp_file_path = "/tmp/cid.sql";
@@ -115,19 +133,52 @@ pub fn restore(input: RestoreInput) -> ResultDynError<String> {
   log::debug!("Writing dump to a temp file");
   fs::write(temp_file_path, input.sql)?;
 
-  let password = db_connection_config.password.or(Some("".into())).unwrap();
-  let port = db_connection_config.port.or(Some("".into())).unwrap();
+  let password = db_connection_config
+    .password
+    .or({ Some("".into()) })
+    .unwrap();
+  let port = db_connection_config.port.or({ Some("".into()) }).unwrap();
+  let username = format!("--username={}", db_connection_config.username);
+  let dbname = format!("--dbname={}", db_connection_config.db_name);
+  let host = format!("--host={}", db_connection_config.host);
+  let port = format!("--port={}", port);
 
+  // Drop DB
+  log::debug!("Dropping DB");
+
+  let output = Command::new("dropdb")
+    .env("PGPASSWORD", &password)
+    .arg(&username)
+    .arg(&host)
+    .arg(&port)
+    .arg(&db_connection_config.db_name)
+    .output()?;
+
+  log::debug!("Drop db result {:?}", output);
+
+  // Create DB
+  log::debug!("Recreating DB");
+
+  let output = Command::new("createdb")
+    .env("PGPASSWORD", &password)
+    .arg(&username)
+    .arg(&host)
+    .arg(&port)
+    .arg(&db_connection_config.db_name)
+    .output()?;
+
+  log::debug!("Create db result {:?}", output);
+
+  // Run pg_restore
   log::debug!("Running pg_restore");
   let mut command = Command::new("pg_restore");
 
   command
-    .env("PGPASSWORD", password)
-    .arg("--clean")
-    .arg(format!("--username={}", db_connection_config.username))
-    .arg(format!("--dbname={}", db_connection_config.db_name))
-    .arg(format!("--host={}", db_connection_config.host))
-    .arg(format!("--port={}", port))
+    .env("PGPASSWORD", &password)
+    .arg(&username)
+    .arg(&dbname)
+    .arg(&host)
+    .arg(&port)
     .arg("--single-transaction")
     .arg(temp_file_path);
 
@@ -140,7 +191,7 @@ pub fn restore(input: RestoreInput) -> ResultDynError<String> {
 
   let err = String::from_utf8(output.stderr)?;
 
-  if err.len() > 0 {
+  if !err.is_empty() {
     let err = io::Error::new(io::ErrorKind::Other, err);
 
     return Err(err.into());
