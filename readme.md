@@ -14,7 +14,7 @@ make install
 ```
 
 ### Download
-Dynamically linked binaries are only available for macos and linux. Go [here](https://github.com/sendyhalim/cid/releases/tag/0.0.1).
+Dynamically linked binaries are only available for macos and linux. Go [here](https://github.com/sendyhalim/cid/releases/latest).
 
 ## 🎮 Usage
 ```bash
