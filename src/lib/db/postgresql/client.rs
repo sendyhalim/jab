@@ -201,3 +201,55 @@ pub fn restore(input: RestoreInput) -> ResultDynError<String> {
 
   return Ok(output);
 }
+
+#[cfg(test)]
+mod test {
+  use super::*;
+
+  mod DbConnectionConfigTest {
+    use super::*;
+
+    mod from {
+      use super::*;
+
+      #[test]
+      fn it_should_return_valid_db_config_without_password() -> ResultDynError<()> {
+        let config = DbConnectionConfig::from("yay@localhost/testdb")?;
+
+        assert_eq!(config.username, "yay");
+        assert!(config.password.is_none());
+        assert_eq!(config.db_name, "testdb");
+        assert_eq!(config.host, "localhost");
+        assert!(config.port.is_none());
+
+        return Ok(());
+      }
+
+      #[test]
+      fn it_should_return_valid_db_config_with_password() -> ResultDynError<()> {
+        let config = DbConnectionConfig::from("yay:hidden@localhost/testdb")?;
+
+        assert_eq!(config.username, "yay");
+        assert_eq!(config.password.unwrap(), "hidden");
+        assert_eq!(config.db_name, "testdb");
+        assert_eq!(config.host, "localhost");
+        assert!(config.port.is_none());
+
+        return Ok(());
+      }
+
+      #[test]
+      fn it_should_return_valid_db_config_with_complete_uri() -> ResultDynError<()> {
+        let config = DbConnectionConfig::from("yay:hidden@localhost:5544/testdb")?;
+
+        assert_eq!(config.username, "yay");
+        assert_eq!(config.password.unwrap(), "hidden");
+        assert_eq!(config.db_name, "testdb");
+        assert_eq!(config.host, "localhost");
+        assert_eq!(config.port.unwrap(), "5544");
+
+        return Ok(());
+      }
+    }
+  }
+}

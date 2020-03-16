@@ -195,6 +195,7 @@ impl GitRepo {
 #[cfg(test)]
 mod test {
   use super::*;
+  use std::fs;
 
   struct DirCleaner {
     dir: String,
@@ -216,11 +217,11 @@ mod test {
         dir: repo_path.clone(),
       };
 
-      GitRepo::upsert("/tmp", "test-repo").unwrap();
+      GitRepo::upsert("/tmp/test-repo").unwrap();
 
       assert!(PathBuf::from(&repo_path).exists());
+      assert!(PathBuf::from(&repo_path).join(".git").exists());
     }
-    assert!(PathBuf::from(&repo_path).join(".git").exists());
   }
 
   mod commit {
