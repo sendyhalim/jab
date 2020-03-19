@@ -2,7 +2,7 @@
 `jab` is a database state management tool, think of it as git but for database. You can commit your current db state and checkout to your previous db state.
 
 [![Crates.io](https://img.shields.io/crates/v/jab)](https://crates.io/crates/jab)
-[![Crates.io](https://img.shields.io/crates/l/jab)](LICENSE)
+[![Crates.io](https://img.shields.io/crates/l/jab)](./license)
 
 ## 📠 Notes
 * Currently only supports postgres.
