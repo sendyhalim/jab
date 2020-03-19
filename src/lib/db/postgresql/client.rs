@@ -42,19 +42,42 @@ struct DbConnectionConfig {
 }
 
 #[derive(Debug, Clone, Fail)]
-pub enum DbConnectionError {
-  #[fail(display = "Error when parsing db uri {}, parsing step: ", db_uri)]
+pub enum DbError {
+  #[fail(
+    display = "Error when parsing db uri {}, parsing step: {}. {:?}",
+    db_uri, parsing_step, message
+  )]
   DbUriParseError {
     parsing_step: String,
     db_uri: String,
+    message: Option<String>,
+  },
+
+  #[fail(
+    display = "Error when restoring db uri {}, restore step: {}. {:?}",
+    db_uri, restore_step, message
+  )]
+  DbRestoreError {
+    restore_step: String,
+    db_uri: String,
+    message: Option<String>,
   },
 }
 
-impl DbConnectionError {
-  fn parse_error(db_uri: &str, step: DbUriParsingStep) -> DbConnectionError {
-    return DbConnectionError::DbUriParseError {
+impl DbError {
+  fn parse_error(db_uri: &str, step: DbUriParsingStep, message: Option<String>) -> DbError {
+    return DbError::DbUriParseError {
       db_uri: String::from(db_uri),
       parsing_step: step.to_string(),
+      message,
+    };
+  }
+
+  fn restore_error(db_uri: &str, step: DbRestoreStep, message: Option<String>) -> DbError {
+    return DbError::DbRestoreError {
+      db_uri: String::from(db_uri),
+      restore_step: step.to_string(),
+      message,
     };
   }
 }
@@ -75,37 +98,50 @@ impl ToString for DbUriParsingStep {
   }
 }
 
+#[derive(Debug)]
+enum DbRestoreStep {
+  DropDb,
+  CreateDb,
+  RestoreDb,
+}
+
+impl ToString for DbRestoreStep {
+  fn to_string(&self) -> String {
+    return format!("{:?}", self);
+  }
+}
+
 impl DbConnectionConfig {
   fn from(db_uri: &str) -> ResultDynError<DbConnectionConfig> {
     let parts: Vec<&str> = db_uri.split('/').collect();
     let db_name = parts
       .get(1)
-      .ok_or({ DbConnectionError::parse_error(db_uri, DbUriParsingStep::DbName) })?;
+      .ok_or({ DbError::parse_error(db_uri, DbUriParsingStep::DbName, None) })?;
 
     let target_str = String::from(*parts.get(0).ok_or({
-      DbConnectionError::parse_error(db_uri, DbUriParsingStep::CredentialAndHostCandidate)
+      DbError::parse_error(db_uri, DbUriParsingStep::CredentialAndHostCandidate, None)
     })?);
 
     let parts: Vec<&str> = target_str.split('@').collect();
     let credential_str = String::from(
       *parts
         .get(0)
-        .ok_or({ DbConnectionError::parse_error(db_uri, DbUriParsingStep::Credential) })?,
+        .ok_or({ DbError::parse_error(db_uri, DbUriParsingStep::Credential, None) })?,
     );
     let host_and_port = parts
       .get(1)
-      .ok_or({ DbConnectionError::parse_error(db_uri, DbUriParsingStep::HostAndPort) })?;
+      .ok_or({ DbError::parse_error(db_uri, DbUriParsingStep::HostAndPort, None) })?;
 
     let host_and_port_parts: Vec<&str> = host_and_port.split(':').collect();
     let host = host_and_port_parts
       .get(0)
-      .ok_or({ DbConnectionError::parse_error(db_uri, DbUriParsingStep::Host) })?;
+      .ok_or({ DbError::parse_error(db_uri, DbUriParsingStep::Host, None) })?;
     let port = host_and_port_parts.get(1).map(|port| (*port).into());
 
     let parts: Vec<&str> = credential_str.split(':').collect();
     let username = parts
       .get(0)
-      .ok_or({ DbConnectionError::parse_error(db_uri, DbUriParsingStep::CredentialUsername) })?;
+      .ok_or({ DbError::parse_error(db_uri, DbUriParsingStep::CredentialUsername, None) })?;
     let password = parts.get(1).map(|pass| (*pass).into());
 
     return Ok(DbConnectionConfig {
@@ -126,7 +162,8 @@ impl DbConnectionConfig {
 /// Note that maybe this will change in the future, we would
 /// probably need to write our own version of pg_restore and pg_dump.
 pub fn restore(input: RestoreInput) -> ResultDynError<String> {
-  let db_connection_config = DbConnectionConfig::from(input.db_uri)?;
+  let db_uri = input.db_uri;
+  let db_connection_config = DbConnectionConfig::from(db_uri)?;
   let temp_file_path = "/tmp/cid.sql";
 
   log::debug!("Parsed config {:?}", db_connection_config);
@@ -156,6 +193,17 @@ pub fn restore(input: RestoreInput) -> ResultDynError<String> {
 
   log::debug!("Drop db result {:?}", output);
 
+  if !output.status.success() {
+    return Err(
+      DbError::restore_error(
+        db_uri,
+        DbRestoreStep::DropDb,
+        Some(format!("output: {:?}", output)),
+      )
+      .into(),
+    );
+  }
+
   // Create DB
   log::debug!("Recreating DB");
 
@@ -168,6 +216,17 @@ pub fn restore(input: RestoreInput) -> ResultDynError<String> {
     .output()?;
 
   log::debug!("Create db result {:?}", output);
+
+  if !output.status.success() {
+    return Err(
+      DbError::restore_error(
+        db_uri,
+        DbRestoreStep::CreateDb,
+        Some(format!("output: {:?}", output)),
+      )
+      .into(),
+    );
+  }
 
   // Run pg_restore
   log::debug!("Running pg_restore");
@@ -186,16 +245,19 @@ pub fn restore(input: RestoreInput) -> ResultDynError<String> {
 
   let output = command.output()?;
 
+  if !output.status.success() {
+    return Err(
+      DbError::restore_error(
+        db_uri,
+        DbRestoreStep::RestoreDb,
+        Some(format!("output: {:?}", output)),
+      )
+      .into(),
+    );
+  }
+
   log::debug!("Cleaning out temp file");
   fs::remove_file(temp_file_path)?;
-
-  let err = String::from_utf8(output.stderr)?;
-
-  if !err.is_empty() {
-    let err = io::Error::new(io::ErrorKind::Other, err);
-
-    return Err(err.into());
-  }
 
   let output = String::from_utf8(output.stdout)?;
 
