@@ -13,6 +13,8 @@ homepage = "https://github.com/sendyhalim/jab"
 repository = "https://github.com/sendyhalim/jab"
 keywords = ["cli", "database", "developer-tools"]
 categories = ["command-line-utilities"]
+license = "MIT"
+license-file = "license"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
