@@ -95,7 +95,7 @@ fn project_cmd<'a, 'b>() -> Cli<'a, 'b> {
         .arg(project_name_arg.clone())
         .arg(
           Arg::with_name("commit-hash")
-            .required(true)
+            .required(false)
             .takes_value(true),
         ),
     );
@@ -157,31 +157,37 @@ fn handle_project_cli(cli: &ArgMatches) -> ResultDynError<()> {
       }
     }
   } else if let Some(show_cli) = cli.subcommand_matches("show") {
-    let project = project_manager.open_project_from_args(show_cli)?;
-
-    let commit_hash = show_cli.value_of("commit-hash").unwrap();
-
-    log::debug!("Reading commit {}...", commit_hash);
-
+    println!("Operation not supported yet..");
+  // let project = project_manager.open_project_from_args(show_cli)?;
+  // let commit_hash = show_cli.value_of("commit-hash").unwrap();
+  // log::debug!("Reading commit {}...", commit_hash);
+  //
   // TODO: Show commit details!
   // let dump = repo.get_dump_at_commit(String::from(commit_hash))?;
   } else if let Some(restore_cli) = cli.subcommand_matches("restore") {
     let project = project_manager.open_project_from_args(restore_cli)?;
 
-    let commit_hash = restore_cli.value_of("commit-hash").unwrap();
-
-    log::debug!("Reading commit...");
+    let commit_hash = restore_cli.value_of("commit-hash");
 
     // TODO: This is impractical because it will unnecessarily increase the memory usage.
     // but let's stick with this to target the functional feature first.
-    let dump = project.get_dump_at_commit(commit_hash)?;
+    let dump = commit_hash
+      .map(|commit_hash| {
+        log::debug!("Reading commit {}...", commit_hash);
+        return project.get_dump_at_commit(commit_hash);
+      })
+      .or_else(|| {
+        log::debug!("Restoring to last commit");
+        return Some(project.get_latest_dump());
+      })
+      .unwrap()?;
+
     let result = pg::restore(pg::RestoreInput {
       db_uri: project.db_uri(),
       sql: dump,
     })?;
 
     log::debug!("Result {}", result);
-    println!("Restore {} done!", commit_hash);
   }
 
   return Ok(());

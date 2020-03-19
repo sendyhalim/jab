@@ -114,4 +114,10 @@ impl Project {
       .repo
       .get_file_content_at_commit(self.sql_path(), commit_hash);
   }
+
+  pub fn get_latest_dump(&self) -> ResultDynError<Vec<u8>> {
+    let last_commit_hash = self.repo.last_commit_hash()?;
+
+    return self.get_dump_at_commit(&last_commit_hash);
+  }
 }

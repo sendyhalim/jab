@@ -155,13 +155,11 @@ impl GitRepo {
   }
 
   pub fn commit_iterator(&self) -> ResultDynError<CommitIterator> {
+    self.make_sure_repo_not_empty()?;
+
     log::debug!("Getting revwalk");
 
     let mut revision_walker = self.repo.revwalk()?;
-
-    if self.repo.is_empty()? {
-      return Err(GitRepoError::EmptyRepoError.into());
-    }
 
     log::debug!("Moving pointer to HEAD");
 
@@ -171,6 +169,13 @@ impl GitRepo {
       git_repo: self,
       revision_walker: revision_walker,
     });
+  }
+
+  pub fn last_commit_hash(&self) -> ResultDynError<String> {
+    return self
+      .commit_iterator()
+      .and_then(|iterator: CommitIterator| iterator.take(1).next().unwrap())
+      .map(|commit: Commit| commit.hash);
   }
 
   pub fn get_file_content_at_commit(
@@ -189,6 +194,14 @@ impl GitRepo {
       .content();
 
     return Ok(Vec::from(sql));
+  }
+
+  fn make_sure_repo_not_empty(&self) -> ResultDynError<()> {
+    if self.repo.is_empty()? {
+      return Err(GitRepoError::EmptyRepoError.into());
+    }
+
+    return Ok(());
   }
 }
 

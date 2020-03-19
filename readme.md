@@ -20,17 +20,27 @@ Dynamically linked binaries are only available for macos and linux. Go [here](ht
 ```bash
 # First create project.
 # Currently only supports postgres.
+# ------------------------------------------
 cid project create awesomestuff --database-uri="username:password@localhost:5433"
 
 # Start commiting your db
+# ------------------------------------------
 cid project commit awesomestuff --message "my first commit"
 
 # See log
+# ------------------------------------------
 cid project log awesomestuff
 
-# Restore your db
-cid project restore awesomestuff <hash>
+# Restore your db to the latest commit
+# ------------------------------------------
+cid project restore awesomestuff
+
+# Restore your db to a specific commit
+# ------------------------------------------
+cid project restore awesomestuff [optional-hash]
+
 
 # List of available projects
+# ------------------------------------------
 cid project list
 ```
