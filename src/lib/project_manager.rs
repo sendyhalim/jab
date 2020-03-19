@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::config::CidConfig;
+use crate::config::JabConfig;
 use crate::project::Project;
 use crate::types::ResultDynError;
 
@@ -18,7 +18,7 @@ pub struct OpenProjectInput<'a> {
 
 pub trait ProjectManager {
   fn bootstrap() -> ResultDynError<()>;
-  fn new(cid_config: CidConfig) -> Self;
+  fn new(jab_config: JabConfig) -> Self;
   fn create_project(&mut self, input: &CreateProjectInput) -> ResultDynError<Project>;
   fn open_project(&self, input: &OpenProjectInput) -> ResultDynError<Project>;
   fn get_project_names(&self) -> ResultDynError<Vec<&str>>;

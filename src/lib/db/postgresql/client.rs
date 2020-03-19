@@ -164,7 +164,7 @@ impl DbConnectionConfig {
 pub fn restore(input: RestoreInput) -> ResultDynError<String> {
   let db_uri = input.db_uri;
   let db_connection_config = DbConnectionConfig::from(db_uri)?;
-  let temp_file_path = "/tmp/cid.sql";
+  let temp_file_path = "/tmp/jab.sql";
 
   log::debug!("Parsed config {:?}", db_connection_config);
   log::debug!("Writing dump to a temp file");

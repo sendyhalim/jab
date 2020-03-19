@@ -1,8 +1,8 @@
-# Cid
-CID is a database state management tool, think of it as git but for database. You can commit your current db state and checkout to your previous db state.
+# Jab
+`jab` is a database state management tool, think of it as git but for database. You can commit your current db state and checkout to your previous db state.
 
-[![Crates.io](https://img.shields.io/crates/v/cid)](https://crates.io/crates/cid)
-[![Crates.io](https://img.shields.io/crates/l/cid)](LICENSE)
+[![Crates.io](https://img.shields.io/crates/v/jab)](https://crates.io/crates/jab)
+[![Crates.io](https://img.shields.io/crates/l/jab)](LICENSE)
 
 ## 📠 Notes
 * Currently only supports postgres.
@@ -11,39 +11,39 @@ CID is a database state management tool, think of it as git but for database. Yo
 ## 🔩 Installation
 ### Manual (requires rust)
 ```bash
-git clone git@github.com:sendyhalim/cid.git
+git clone git@github.com:sendyhalim/jab.git
 
 make install
 ```
 
 ### Download
-Dynamically linked binaries are only available for macos and linux. Go [here](https://github.com/sendyhalim/cid/releases/latest).
+Dynamically linked binaries are only available for macos and linux. Go [here](https://github.com/sendyhalim/jab/releases/latest).
 
 ## 🎮 Usage
 ```bash
 # First create project.
 # Currently only supports postgres.
 # ------------------------------------------
-cid project create awesomestuff --database-uri="username:password@localhost:5433"
+jab project create awesomestuff --database-uri="username:password@localhost:5433"
 
 # Start commiting your db
 # ------------------------------------------
-cid project commit awesomestuff --message "my first commit"
+jab project commit awesomestuff --message "my first commit"
 
 # See log
 # ------------------------------------------
-cid project log awesomestuff
+jab project log awesomestuff
 
 # Restore your db to the latest commit
 # ------------------------------------------
-cid project restore awesomestuff
+jab project restore awesomestuff
 
 # Restore your db to a specific commit
 # ------------------------------------------
-cid project restore awesomestuff [optional-hash]
+jab project restore awesomestuff [optional-hash]
 
 
 # List of available projects
 # ------------------------------------------
-cid project list
+jab project list
 ```

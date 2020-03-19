@@ -8,7 +8,7 @@ use log;
 
 use env_logger;
 use lib::config;
-use lib::config::CidConfig;
+use lib::config::JabConfig;
 use lib::config::ProjectConfig;
 use lib::db::postgresql::client as pg;
 use lib::project;
@@ -25,10 +25,10 @@ pub mod built_info {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
   env_logger::init();
 
-  log::debug!("Preparing cid..");
+  log::debug!("Preparing jab..");
   MainProjectManager::bootstrap()?;
 
-  let cli = Cli::new("CID")
+  let cli = Cli::new("jab")
     .version(built_info::PKG_VERSION)
     .author(built_info::PKG_AUTHORS)
     .setting(clap::AppSettings::ArgRequiredElseHelp)
@@ -102,10 +102,10 @@ fn project_cmd<'a, 'b>() -> Cli<'a, 'b> {
 }
 
 fn handle_project_cli(cli: &ArgMatches) -> ResultDynError<()> {
-  log::debug!("Reading cid config");
+  log::debug!("Reading jab config");
 
-  let cid_config = CidConfig::read()?;
-  let mut project_manager: MainProjectManager = MainProjectManager::new(cid_config);
+  let jab_config = JabConfig::read()?;
+  let mut project_manager: MainProjectManager = MainProjectManager::new(jab_config);
 
   if let Some(create_cli) = cli.subcommand_matches("create") {
     log::debug!("Creating project...");
@@ -114,7 +114,7 @@ fn handle_project_cli(cli: &ArgMatches) -> ResultDynError<()> {
     let db_uri = create_cli.value_of("database-uri").unwrap();
 
     let project = project_manager.create_project(&CreateProjectInput {
-      project_dir: config::get_cid_dir().as_ref(),
+      project_dir: config::get_jab_dir().as_ref(),
       project_name,
       db_uri,
     })?;
@@ -194,16 +194,16 @@ fn handle_project_cli(cli: &ArgMatches) -> ResultDynError<()> {
 }
 
 struct MainProjectManager {
-  cid_config: CidConfig,
+  jab_config: JabConfig,
 }
 
 impl MainProjectManager {
   fn open_project_from_args(&self, matches: &ArgMatches) -> ResultDynError<Project> {
     let project_name = matches.value_of("project").unwrap();
-    let project_config = self.cid_config.project_config(project_name)?;
+    let project_config = self.jab_config.project_config(project_name)?;
 
     return self.open_project(&OpenProjectInput {
-      project_dir: config::get_cid_dir().as_ref(),
+      project_dir: config::get_jab_dir().as_ref(),
       project_name,
       db_uri: &project_config.db_uri,
     });
@@ -212,23 +212,23 @@ impl MainProjectManager {
 
 impl ProjectManager for MainProjectManager {
   fn bootstrap() -> ResultDynError<()> {
-    let cid_dir = config::get_cid_dir();
+    let jab_dir = config::get_jab_dir();
 
-    if !cid_dir.exists() {
-      fs::create_dir(cid_dir)?;
+    if !jab_dir.exists() {
+      fs::create_dir(jab_dir)?;
     }
 
-    let config_path = CidConfig::get_path();
+    let config_path = JabConfig::get_path();
 
     if !config_path.exists() {
-      fs::write(config_path, CidConfig::empty_config_str())?;
+      fs::write(config_path, JabConfig::empty_config_str())?;
     }
 
     return Ok(());
   }
 
-  fn new(cid_config: CidConfig) -> MainProjectManager {
-    return MainProjectManager { cid_config };
+  fn new(jab_config: JabConfig) -> MainProjectManager {
+    return MainProjectManager { jab_config };
   }
 
   fn create_project(&mut self, input: &CreateProjectInput) -> ResultDynError<Project> {
@@ -238,12 +238,12 @@ impl ProjectManager for MainProjectManager {
       db_uri: input.db_uri,
     })?;
 
-    self.cid_config.register_project_config(ProjectConfig {
+    self.jab_config.register_project_config(ProjectConfig {
       name: String::from(project.name()),
       db_uri: String::from(project.db_uri()),
     });
 
-    CidConfig::persist(&self.cid_config)?;
+    JabConfig::persist(&self.jab_config)?;
 
     return Ok(project);
   }
@@ -258,7 +258,7 @@ impl ProjectManager for MainProjectManager {
 
   fn get_project_names(&self) -> ResultDynError<Vec<&str>> {
     let project_names: Vec<&str> = self
-      .cid_config
+      .jab_config
       .projects
       .values()
       .map(|config| config.name.as_ref())

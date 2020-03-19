@@ -20,10 +20,10 @@ jobs:
         include:
           - os: macos-latest
             target: x86_64-apple-darwin
-            release_bin_name: cid.macos
+            release_bin_name: jab.macos
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            release_bin_name: cid.linux
+            release_bin_name: jab.linux
     steps:
       - uses: actions/checkout@v2
 
@@ -40,12 +40,12 @@ jobs:
 
       - name: Zip build result
         run: |
-          zip --junk-paths ./target/${{ matrix.target }}/release/cid-${{ matrix.target }}.zip ./target/${{ matrix.target }}/release/cid
+          zip --junk-paths ./target/${{ matrix.target }}/release/jab-${{ matrix.target }}.zip ./target/${{ matrix.target }}/release/jab
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: ./target/${{ matrix.target }}/release/cid-${{ matrix.target }}.zip
+          files: ./target/${{ matrix.target }}/release/jab-${{ matrix.target }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -55,7 +55,7 @@ jobs:
           #    env:
           #      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           #    with:
-          #      files: ./target/${{ matrix.target }}/release/cid.zip
+          #      files: ./target/${{ matrix.target }}/release/jab.zip
           #      release_name: Release ${{ github.ref }}
           #      draft: false
           #      prerelease: false
@@ -71,6 +71,6 @@ jobs:
           #      # See below blog post for more info:
           #      # https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
           #      upload_url: ${{ steps.create_release.outputs.upload_url }}
-          #      asset_path: ./target/${{ matrix.target }}/release/cid.zip
+          #      asset_path: ./target/${{ matrix.target }}/release/jab.zip
           #      asset_name: ${{ matrix.release_bin_name }}
           #      asset_content_type: application/zip

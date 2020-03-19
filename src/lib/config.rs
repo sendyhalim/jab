@@ -25,21 +25,21 @@ pub struct ProjectConfig {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct CidConfig {
+pub struct JabConfig {
   pub projects: HashMap<String, ProjectConfig>,
 }
 
-impl CidConfig {
-  pub fn read() -> ResultDynError<CidConfig> {
-    let config_path = CidConfig::get_path();
+impl JabConfig {
+  pub fn read() -> ResultDynError<JabConfig> {
+    let config_path = JabConfig::get_path();
     let config_str = String::from(fs::read_to_string(config_path)?);
-    let config: CidConfig = serde_json::from_str(&config_str)?;
+    let config: JabConfig = serde_json::from_str(&config_str)?;
 
     return Ok(config);
   }
 
-  pub fn persist(config: &CidConfig) -> ResultDynError<()> {
-    let config_path = CidConfig::get_path();
+  pub fn persist(config: &JabConfig) -> ResultDynError<()> {
+    let config_path = JabConfig::get_path();
 
     let config_str = serde_json::to_string_pretty(&config)?;
     fs::write(config_path, config_str)?;
@@ -48,11 +48,11 @@ impl CidConfig {
   }
 
   pub fn get_path() -> PathBuf {
-    return get_cid_dir().join("config");
+    return get_jab_dir().join("config");
   }
 
   pub fn empty_config_str() -> String {
-    let config = CidConfig {
+    let config = JabConfig {
       projects: HashMap::new(),
     };
 
@@ -60,7 +60,7 @@ impl CidConfig {
   }
 }
 
-impl CidConfig {
+impl JabConfig {
   pub fn register_project_config(&mut self, project_config: ProjectConfig) {
     self
       .projects
@@ -77,8 +77,8 @@ impl CidConfig {
   }
 }
 
-pub fn get_cid_dir() -> PathBuf {
+pub fn get_jab_dir() -> PathBuf {
   let project_dir = dirs::home_dir().unwrap();
 
-  return project_dir.join(".cid");
+  return project_dir.join(".jab");
 }
