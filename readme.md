@@ -9,6 +9,11 @@
 * This project only works if you have `ON DELETE CASCADE` on every FK constraints otherwise we can't do clean restore (hopefully this will change in the future).
 
 ## 🔩 Installation
+### Cargo
+```bash
+cargo install jab
+```
+
 ### Manual (requires rust)
 ```bash
 git clone git@github.com:sendyhalim/jab.git
