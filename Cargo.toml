@@ -8,6 +8,11 @@ description = """\
   database. You can commit your current db state and checkout to \
   your previous db state.\
 """
+readme = "readme.md"
+homepage = "https://github.com/sendyhalim/cid"
+repository = "https://github.com/sendyhalim/cid"
+keywords = ["cli", "database", "developer-tools"]
+categories = ["command-line-utilities"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
